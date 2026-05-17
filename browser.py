@@ -1,6 +1,8 @@
 import socket
 import ssl
 
+ConnectionPool = {}
+
 
 class URL:
     def __init__(self, url: str) -> None:
@@ -32,16 +34,22 @@ class URL:
             with open(self.path, "r", encoding="utf8") as f:
                 return f.read()
 
-        s = socket.socket(
-            family=socket.AF_INET,
-            type=socket.SOCK_STREAM,
-            proto=socket.IPPROTO_TCP,
-        )
-        s.connect((self.host, self.port))
+        pool_key = (self.schema, self.host, self.port)
 
-        if self.schema == "https":
-            ctx = ssl.create_default_context()
-            s = ctx.wrap_socket(s, server_hostname=self.host)
+        if pool_key in ConnectionPool:
+            s = ConnectionPool[pool_key]
+        else:
+            s = socket.socket(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP,
+            )
+            s.connect((self.host, self.port))
+
+            if self.schema == "https":
+                ctx = ssl.create_default_context()
+                s = ctx.wrap_socket(s, server_hostname=self.host)
+            ConnectionPool[pool_key] = s
 
         headers = {"Host": self.host, "User-Agent": "timid/1.0"}
 
@@ -51,7 +59,6 @@ class URL:
             request += f"{key}: {value}\r\n"
 
         request += "\r\n"
-
         s.send(request.encode("utf8"))
 
         response = s.makefile("rb")
@@ -69,7 +76,6 @@ class URL:
 
         body_bytes = response.read(int(response_headers.get("content-length", -1)))
         content = body_bytes.decode("utf8")
-        s.close()
         return content
 
 
