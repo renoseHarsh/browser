@@ -80,13 +80,28 @@ def load(url: URL):
 
 def show(body: str):
     in_tag = False
-    for c in body:
+    idx = 0
+    length = len(body)
+
+    ENTITIES = {"&lt;": "<", "&gt;": ">"}
+
+    while idx < length:
+        c = body[idx]
         if c == "<":
             in_tag = True
         elif c == ">":
             in_tag = False
         elif not in_tag:
+            if c == "&":
+                end_idx = body.find(";", idx, idx + 4)
+                entity = body[idx : end_idx + 1] if end_idx != -1 else ""
+                if entity in ENTITIES:
+                    print(ENTITIES[entity], end="")
+                    idx = end_idx + 1
+                    continue
+
             print(c, end="")
+        idx += 1
 
 
 if __name__ == "__main__":
